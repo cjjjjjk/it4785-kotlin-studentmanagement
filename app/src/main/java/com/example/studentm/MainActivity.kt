@@ -3,67 +3,51 @@ package com.example.studentm
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ListView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import android.content.Context
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import android.widget.BaseAdapter
-import android.widget.LinearLayout
+
+
 
 data class Student(val name: String, val mssv: String)
 
-class StudentAdapter(private val context: Context, private val students: MutableList<Student>) : BaseAdapter() {
-    override fun getCount(): Int = students.size
-    override fun getItem(position: Int): Any = students[position]
-    override fun getItemId(position: Int): Long = position.toLong()
+class StudentAdapter(private val students: MutableList<Student>) :
+    RecyclerView.Adapter<StudentAdapter.StudentViewHolder>() {
 
-    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-        val view = convertView ?: LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(16, 16, 16, 16)
-
-            addView(TextView(context).apply {
-                id = View.generateViewId()
-                textSize = 16f
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            })
-
-            addView(TextView(context).apply {
-                id = View.generateViewId()
-                textSize = 16f
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            })
-
-            addView(Button(context).apply {
-                id = View.generateViewId()
-                text = "Xóa"
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            })
-        }
-
-        val txtName: TextView = (view as LinearLayout).getChildAt(0) as TextView
-        val txtMSSV: TextView = view.getChildAt(1) as TextView
-        val btnDelete: Button = view.getChildAt(2) as Button
-
-
-        val student = students[position]
-        txtName.text = student.name
-        txtMSSV.text = student.mssv
-
-        btnDelete.setOnClickListener {
-            students.removeAt(position)
-            notifyDataSetChanged()
-        }
-
-        return view
+    inner class StudentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val txtName: TextView = itemView.findViewById(R.id.txtName)
+        val txtMSSV: TextView = itemView.findViewById(R.id.txtMSSV)
+        val btnDelete: Button = itemView.findViewById(R.id.btnDelete)
     }
 
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): StudentViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_student, parent, false)
+        return StudentViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: StudentViewHolder, position: Int) {
+        val student = students[position]
+        holder.txtName.text = student.name
+        holder.txtMSSV.text = student.mssv
+
+        holder.btnDelete.setOnClickListener {
+            students.removeAt(position)
+            notifyItemRemoved(position)
+        }
+    }
+
+    override fun getItemCount(): Int = students.size
+
     fun addStudent(student: Student) {
-        students.add(student)
-        notifyDataSetChanged()
+        students.add(0, student)
+        notifyItemInserted(0)
     }
 }
 
@@ -73,6 +57,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var edtName: EditText
     private lateinit var edtMSSV: EditText
     private lateinit var btnAdd: Button
+    private lateinit var recyclerView: RecyclerView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,10 +66,11 @@ class MainActivity : AppCompatActivity() {
         edtName = findViewById(R.id.edtName)
         edtMSSV = findViewById(R.id.edtMSSV)
         btnAdd = findViewById(R.id.btnAdd)
-        val listView: ListView = findViewById(R.id.listView)
+        recyclerView = findViewById(R.id.recyclerView)
 
-        studentAdapter = StudentAdapter(this, mutableListOf())
-        listView.adapter = studentAdapter
+        studentAdapter = StudentAdapter(mutableListOf())
+        recyclerView.adapter = studentAdapter
+        recyclerView.layoutManager = LinearLayoutManager(this)
 
         btnAdd.setOnClickListener {
             val name = edtName.text.toString().trim()
@@ -94,9 +80,11 @@ class MainActivity : AppCompatActivity() {
                 studentAdapter.addStudent(Student(name, mssv))
                 edtName.text.clear()
                 edtMSSV.text.clear()
+                recyclerView.scrollToPosition(0)
             } else {
                 Toast.makeText(this, "Vui lòng nhập đủ thông tin", Toast.LENGTH_SHORT).show()
             }
         }
     }
 }
+
