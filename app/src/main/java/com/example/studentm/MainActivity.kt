@@ -4,26 +4,28 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
-import android.widget.Button
-import android.widget.Toast
+import android.view.View
+import android.view.ViewGroup
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import android.widget.PopupMenu
-import android.view.View
-import android.view.ViewGroup
-import android.widget.TextView
 
 data class Student(
+    val id: Int = 0,
     val name: String,
     val mssv: String,
     val email: String,
     val phone: String
 )
 
-class StudentAdapter(private val students: MutableList<Student>) :
-    RecyclerView.Adapter<StudentAdapter.StudentViewHolder>() {
+class StudentAdapter(
+    private val students: MutableList<Student>,
+    private val onDelete: (Student) -> Unit,
+    private val onUpdate: (Student) -> Unit
+) : RecyclerView.Adapter<StudentAdapter.StudentViewHolder>() {
 
     inner class StudentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val txtName: TextView = itemView.findViewById(R.id.txtName)
@@ -50,19 +52,14 @@ class StudentAdapter(private val students: MutableList<Student>) :
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     R.id.menu_update -> {
-                        val intent = Intent(context, UpdateStudentActivity::class.java).apply {
-                            putExtra("name", student.name)
-                            putExtra("mssv", student.mssv)
-                            putExtra("email", student.email)
-                            putExtra("phone", student.phone)
-                        }
-                        (context as MainActivity).startActivityForResult(intent, MainActivity.UPDATE_STUDENT_REQUEST_CODE)
+                        onUpdate(student)
                         true
                     }
                     R.id.menu_delete -> {
-                        val builder = AlertDialog.Builder(context)
-                        builder.setMessage("Bạn có chắc chắn muốn xóa sinh viên này?")
+                        AlertDialog.Builder(context)
+                            .setMessage("Bạn có chắc chắn muốn xóa sinh viên này?")
                             .setPositiveButton("Có") { _, _ ->
+                                onDelete(student)
                                 students.removeAt(holder.adapterPosition)
                                 notifyItemRemoved(holder.adapterPosition)
                             }
@@ -97,14 +94,23 @@ class StudentAdapter(private val students: MutableList<Student>) :
         students.add(0, student)
         notifyItemInserted(0)
     }
+
+    fun updateStudent(updated: Student) {
+        val index = students.indexOfFirst { it.id == updated.id }
+        if (index != -1) {
+            students[index] = updated
+            notifyItemChanged(index)
+        }
+    }
 }
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var btnAddNew: Button
-    private val students = mutableListOf<Student>()
     private lateinit var adapter: StudentAdapter
+    private lateinit var dbHelper: StudentDatabaseHelper
+    private val students = mutableListOf<Student>()
 
     companion object {
         const val ADD_STUDENT_REQUEST_CODE = 1
@@ -117,10 +123,29 @@ class MainActivity : AppCompatActivity() {
 
         recyclerView = findViewById(R.id.recyclerView)
         btnAddNew = findViewById(R.id.btnAddNew)
+        dbHelper = StudentDatabaseHelper(this)
 
-        adapter = StudentAdapter(students)
+        adapter = StudentAdapter(students,
+            onDelete = { student ->
+                dbHelper.deleteStudent(student.id)
+                Log.d("MainActivity", "Deleted student: ${student.id}")
+            },
+            onUpdate = { student ->
+                val intent = Intent(this, UpdateStudentActivity::class.java).apply {
+                    putExtra("id", student.id)
+                    putExtra("name", student.name)
+                    putExtra("mssv", student.mssv)
+                    putExtra("email", student.email)
+                    putExtra("phone", student.phone)
+                }
+                startActivityForResult(intent, UPDATE_STUDENT_REQUEST_CODE)
+            }
+        )
+
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
+
+        loadStudentsFromDatabase()
 
         btnAddNew.setOnClickListener {
             val intent = Intent(this, AddStudentActivity::class.java)
@@ -128,27 +153,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadStudentsFromDatabase() {
+        students.clear()
+        students.addAll(dbHelper.getAllStudents())
+        adapter.notifyDataSetChanged()
+        Log.d("MainActivity", "Loaded ${students.size} students from DB")
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == ADD_STUDENT_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+        if (resultCode == RESULT_OK && data != null) {
+            val id = data.getIntExtra("id", -1)
             val name = data.getStringExtra("name") ?: return
             val mssv = data.getStringExtra("mssv") ?: return
             val email = data.getStringExtra("email") ?: ""
             val phone = data.getStringExtra("phone") ?: ""
+            val student = Student(id, name, mssv, email, phone)
 
-            adapter.addStudent(Student(name, mssv, email, phone))
-        }
-
-        if (requestCode == UPDATE_STUDENT_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            val updatedName = data.getStringExtra("name") ?: return
-            val updatedMSSV = data.getStringExtra("mssv") ?: return
-            val updatedEmail = data.getStringExtra("email") ?: ""
-            val updatedPhone = data.getStringExtra("phone") ?: ""
-
-            val updatedStudent = Student(updatedName, updatedMSSV, updatedEmail, updatedPhone)
-            students[students.indexOfFirst { it.mssv == updatedMSSV }] = updatedStudent
-            adapter.notifyDataSetChanged()
+            when (requestCode) {
+                ADD_STUDENT_REQUEST_CODE -> adapter.addStudent(student)
+                UPDATE_STUDENT_REQUEST_CODE -> adapter.updateStudent(student)
+            }
         }
     }
 }
