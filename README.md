@@ -18,3 +18,14 @@
     <td><img src="https://github.com/user-attachments/assets/84bc5ac9-09ce-4baa-b0e3-e010d0f7146b" width="100%" style="border:1px solid black"/></td>
   </tr>
 </table>
+
+## 31stMay : Saving data with SQLite  
+<table>
+  <tr>
+    <td>
+      <img src="https://github.com/user-attachments/assets/09fc00b0-53fd-41ae-8b9b-33088bbf4062" width="100%" style="border:1px solid black"/>
+    </td>
+    <td>
+      <img src="https://github.com/user-attachments/assets/1f6b7a0e-5a03-4624-bb53-50bbc9b74508" width="100%" style="border:1px solid black"/></td>
+  </tr>
+</table>
