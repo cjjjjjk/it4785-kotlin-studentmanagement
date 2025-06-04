@@ -6,8 +6,9 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
-
-private lateinit var dbHelper: StudentDatabaseHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AddStudentActivity : AppCompatActivity() {
 
@@ -19,12 +20,15 @@ class AddStudentActivity : AppCompatActivity() {
     private lateinit var btnCancel: Button
     private lateinit var sharedPref: SharedPreferences
 
+    private lateinit var studentDao: StudentDao
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.add_student_menu)
 
         initViews()
-        dbHelper = StudentDatabaseHelper(this)
+
+        studentDao = StudentDatabase.getDatabase(applicationContext).studentDao()
 
         sharedPref = getSharedPreferences("student_input", MODE_PRIVATE)
         restoreInputData()
@@ -69,21 +73,27 @@ class AddStudentActivity : AppCompatActivity() {
         val email = edtEmail.text.toString()
         val phone = edtPhone.text.toString()
 
-        val rowId = dbHelper.insertStudent(name, mssv, email, phone)
+        val student = Student(name = name, mssv = mssv, email = email, phone = phone)
 
-        if (rowId != -1L) {
-            clearLocalData()
+        CoroutineScope(Dispatchers.IO).launch {
+            val rowId = studentDao.insertStudent(student)
 
-            val resultIntent = Intent().apply {
-                putExtra("name", name)
-                putExtra("mssv", mssv)
-                putExtra("email", email)
-                putExtra("phone", phone)
+            runOnUiThread {
+                if (rowId != -1L) {
+                    clearLocalData()
+
+                    val resultIntent = Intent().apply {
+                        putExtra("name", name)
+                        putExtra("mssv", mssv)
+                        putExtra("email", email)
+                        putExtra("phone", phone)
+                    }
+
+                    setResult(RESULT_OK, resultIntent)
+                }
+                finish()
             }
-
-            setResult(RESULT_OK, resultIntent)
         }
-        finish()
     }
 
     private fun cancelAndSaveInputData() {

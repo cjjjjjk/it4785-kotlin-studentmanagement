@@ -1,20 +1,13 @@
 package com.example.studentm
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.TextView
-import android.content.Intent
-
-import android.widget.PopupMenu
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class UpdateStudentActivity : AppCompatActivity() {
 
@@ -23,6 +16,9 @@ class UpdateStudentActivity : AppCompatActivity() {
     private lateinit var edtEmail: EditText
     private lateinit var edtPhone: EditText
     private lateinit var btnSave: Button
+
+    private lateinit var studentDao: StudentDao
+    private var studentId: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,6 +29,14 @@ class UpdateStudentActivity : AppCompatActivity() {
         edtEmail = findViewById(R.id.edtEmail)
         edtPhone = findViewById(R.id.edtPhone)
         btnSave = findViewById(R.id.btnSave)
+
+        studentDao = StudentDatabase.getDatabase(applicationContext).studentDao()
+
+        studentId = intent.getIntExtra("id", -1)
+        if (studentId == -1) {
+            finish()
+            return
+        }
 
         edtName.setText(intent.getStringExtra("name"))
         edtMSSV.setText(intent.getStringExtra("mssv"))
@@ -45,14 +49,29 @@ class UpdateStudentActivity : AppCompatActivity() {
             val updatedEmail = edtEmail.text.toString()
             val updatedPhone = edtPhone.text.toString()
 
-            val resultIntent = Intent().apply {
-                putExtra("name", updatedName)
-                putExtra("mssv", updatedMSSV)
-                putExtra("email", updatedEmail)
-                putExtra("phone", updatedPhone)
+            val updatedStudent = Student(
+                id = studentId,
+                name = updatedName,
+                mssv = updatedMSSV,
+                email = updatedEmail,
+                phone = updatedPhone
+            )
+
+            CoroutineScope(Dispatchers.IO).launch {
+                studentDao.updateStudent(updatedStudent)
+
+                runOnUiThread {
+                    val resultIntent = Intent().apply {
+                        putExtra("id", studentId)
+                        putExtra("name", updatedName)
+                        putExtra("mssv", updatedMSSV)
+                        putExtra("email", updatedEmail)
+                        putExtra("phone", updatedPhone)
+                    }
+                    setResult(RESULT_OK, resultIntent)
+                    finish()
+                }
             }
-            setResult(RESULT_OK, resultIntent)
-            finish()
         }
     }
 }
